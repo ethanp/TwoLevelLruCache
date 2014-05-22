@@ -24,20 +24,26 @@ public class GsonConverter<T> implements TwoLevelLruCache.Converter<T> {
     private final Class<T> type;
 
     public GsonConverter(Gson gson, Class<T> type) {
-	this.gson = gson;
-	this.type = type;
+        this.gson = gson;
+        this.type = type;
     }
 
     @Override
     public T from(byte[] bytes) {
-	Reader reader = new InputStreamReader(new ByteArrayInputStream(bytes));
-	return gson.fromJson(reader, type);
+
+        // EP: JavaDoc says to wrap this in BufferedReader for more efficiency
+        // EP: This thing creates an object that reads bytes from the byte array
+        //     into into a `char` array.
+        Reader reader = new InputStreamReader(new ByteArrayInputStream(bytes));
+
+        // EP: deserialize byte array into <type> (in our test case, <type> is String)
+        return gson.fromJson(reader, type);
     }
 
     @Override
     public void toStream(T object, OutputStream bytes) throws IOException {
-	Writer writer = new OutputStreamWriter(bytes);
-	gson.toJson(object, writer);
-	writer.close();
+        Writer writer = new OutputStreamWriter(bytes);
+        gson.toJson(object, writer);
+        writer.close();
     }
 }

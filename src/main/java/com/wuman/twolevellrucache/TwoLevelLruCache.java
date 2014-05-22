@@ -1,4 +1,4 @@
-/*                                                                                                                                                                    
+/*
  * Copyright (C) 2011 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,38 +31,41 @@ import com.jakewharton.DiskLruCache.Snapshot;
 /**
  * A two-level LRU cache composed of a smaller, first level {@code LruCache} in
  * memory and a larger, second level {@code DiskLruCache}.
- * 
+ *
  * The keys must be of {@code String} type. The values must be convertible to
  * and from a byte stream using a {@code Converter}.
- * 
+ *
  * @author wuman
- * 
- * @param <V>
  */
 public class TwoLevelLruCache<V> {
 
     private static final int INDEX_VALUE = 0; // allow only one value per entry
 
+    // EP: implementation by wuman (using a LinkedHashMap)
     private final LruCache<String, V> mMemCache;
+
+    // EP: implementation by Jake Wharton (using a LinkedHashMap)
     private final DiskLruCache mDiskCache;
-    private final Converter<V> mConverter;
+    private final Converter<V> mConverter; // Gson converter
 
     /**
      * Constructor for TwoLevelLruCache. Use this constructor if only the first
-     * level memory cache is needed.
-     * 
-     * @param maxSizeMem
+     * level memory cache is needed. // EP: you mean a OneLevelLruCache?
      */
     public TwoLevelLruCache(int maxSizeMem) {
         super();
 
+        // EP: the one level LRU cache has no disk cache
         mDiskCache = null;
+
+        // EP: we only need to serialize internals to Json if we must write to disk
         mConverter = null;
+
         mMemCache = new LruCache<String, V>(maxSizeMem) {
 
             @Override
             protected void entryRemoved(boolean evicted, String key,
-                    V oldValue, V newValue) {
+                                        V oldValue, V newValue) {
                 wrapEntryRemoved(evicted, key, oldValue, newValue);
             }
 
@@ -82,7 +85,7 @@ public class TwoLevelLruCache<V> {
     /**
      * Constructor for TwoLevelLruCache. Use this constructor if the second
      * level disk cache is to be enabled.
-     * 
+     *
      * @param directory
      *            a writable directory for the L2 disk cache.
      * @param appVersion
@@ -98,7 +101,7 @@ public class TwoLevelLruCache<V> {
      * @throws IOException
      */
     public TwoLevelLruCache(File directory, int appVersion, int maxSizeMem,
-            long maxSizeDisk, Converter<V> converter) throws IOException {
+                            long maxSizeDisk, Converter<V> converter) throws IOException {
         super();
 
         if (maxSizeMem >= maxSizeDisk) {
@@ -115,8 +118,7 @@ public class TwoLevelLruCache<V> {
         mMemCache = new LruCache<String, V>(maxSizeMem) {
 
             @Override
-            protected void entryRemoved(boolean evicted, String key,
-                    V oldValue, V newValue) {
+            protected void entryRemoved(boolean evicted, String key, V oldValue, V newValue) {
                 wrapEntryRemoved(evicted, key, oldValue, newValue);
             }
 
@@ -137,9 +139,6 @@ public class TwoLevelLruCache<V> {
     /**
      * Returns the value for {@code key} if it exists in the cache or can be
      * created by {@code #create(String)}.
-     * 
-     * @param key
-     * @return value
      */
     @SuppressWarnings("unchecked")
     public final V get(String key) {
@@ -155,11 +154,9 @@ public class TwoLevelLruCache<V> {
                     value = mConverter.from(bytes);
                 }
             } catch (IOException e) {
-                System.out.println("Unable to get entry from disk cache. key: "
-                        + key);
+                System.out.println("Unable to get entry from disk cache. key: " + key);
             } catch (Exception e) {
-                System.out.println("Unable to get entry from disk cache. key: "
-                        + key);
+                System.out.println("Unable to get entry from disk cache. key: " + key);
             } finally {
                 IOUtils.closeQuietly(in);
                 IOUtils.closeQuietly(snapshot);
@@ -174,7 +171,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Caches {@code newValue} for {@code key}.
-     * 
+     *
      * @param key
      * @param newValue
      * @return oldValue
@@ -231,7 +228,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Removes the entry for {@code key} if it exists.
-     * 
+     *
      * @param key
      * @return oldValue
      */
@@ -242,7 +239,7 @@ public class TwoLevelLruCache<V> {
     }
 
     private void wrapEntryRemoved(boolean evicted, String key, V oldValue,
-            V newValue) {
+                                  V newValue) {
         entryRemoved(evicted, key, oldValue, newValue);
         if (!evicted) {
             removeFromDiskQuietly(key);
@@ -254,11 +251,11 @@ public class TwoLevelLruCache<V> {
      * invoked when a value is evicted to make space, removed by a call to
      * {@link #remove}, or replaced by a call to {@link #put}. The default
      * implementation does nothing.
-     * 
+     *
      * <p>
      * The method is called without synchronization: other threads may access
      * the cache while this method is executing.
-     * 
+     *
      * @param evicted
      *            true if the entry is being removed to make space, false if the
      *            removal was caused by a {@link #put} or {@link #remove}.
@@ -270,7 +267,7 @@ public class TwoLevelLruCache<V> {
      *            by an eviction or a {@link #remove}.
      */
     protected void entryRemoved(boolean evicted, String key, V oldValue,
-            V newValue) {
+                                V newValue) {
     }
 
     private V wrapCreate(String key) {
@@ -286,18 +283,18 @@ public class TwoLevelLruCache<V> {
      * Called after a cache miss to compute a value for the corresponding key.
      * Returns the computed value or null if no value can be computed. The
      * default implementation returns null.
-     * 
+     *
      * <p>
      * The method is called without synchronization: other threads may access
      * the cache while this method is executing.
-     * 
+     *
      * <p>
      * If a value for {@code key} exists in the cache when this method returns,
      * the created value will be released with {@link #entryRemoved} and
      * discarded. This can occur when multiple threads request the same key at
      * the same time (causing multiple values to be created), or when one thread
      * calls {@link #put} while another is creating a value for the same key.
-     * 
+     *
      * @param key
      * @return createdValue
      */
@@ -313,10 +310,10 @@ public class TwoLevelLruCache<V> {
      * Returns the size of the entry for {@code key} and {@code value} in
      * user-defined units. The default implementation returns 1 so that size is
      * the number of entries and max size is the maximum number of entries.
-     * 
+     *
      * <p>
      * An entry's size must not change while it is in the cache.
-     * 
+     *
      * @param key
      * @param value
      * @return sizeOfEntry
@@ -327,7 +324,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Returns the sum of the sizes of the entries in the L1 mem cache.
-     * 
+     *
      * @return size
      */
     public synchronized final int sizeMem() {
@@ -338,7 +335,7 @@ public class TwoLevelLruCache<V> {
      * Returns the number of bytes currently being used to store the values in
      * the L2 disk cache. This may be greater than the max size if a background
      * deletion is pending.
-     * 
+     *
      * @return size
      */
     public synchronized final long sizeDisk() {
@@ -347,7 +344,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Returns the maximum sum of the sizes of the entries in the L1 mem cache.
-     * 
+     *
      * @return maxSize
      */
     public synchronized final int maxSizeMem() {
@@ -357,7 +354,7 @@ public class TwoLevelLruCache<V> {
     /**
      * Returns the maximum number of bytes that the L2 disk cache should use to
      * store its data.
-     * 
+     *
      * @return maxSize
      */
     public synchronized final long maxSizeDisk() {
@@ -367,7 +364,7 @@ public class TwoLevelLruCache<V> {
     /**
      * Clear both mem and disk caches. Internally this method calls both
      * {@link #evictAllMem()} and {@link #evictAllDisk()}.
-     * 
+     *
      * @throws IOException
      */
     public final void evictAll() throws IOException {
@@ -387,7 +384,7 @@ public class TwoLevelLruCache<V> {
      * Closes the L2 disk cache and deletes all of its stored values. This will
      * delete all files in the cache directory including files that weren't
      * created by the cache.
-     * 
+     *
      * @throws IOException
      */
     public final void evictAllDisk() throws IOException {
@@ -398,7 +395,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Returns the number of times {@link #get} returned a value.
-     * 
+     *
      * @return count
      */
     public synchronized final int hitCount() {
@@ -408,7 +405,7 @@ public class TwoLevelLruCache<V> {
     /**
      * Returns the number of times {@link #get} returned null or required a new
      * value to be created.
-     * 
+     *
      * @return count
      */
     public synchronized final int missCount() {
@@ -417,7 +414,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Returns the number of times {@link #create(String)} returned a value.
-     * 
+     *
      * @return count
      */
     public synchronized final int createCount() {
@@ -426,7 +423,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Returns the number of times {@link #put} was called.
-     * 
+     *
      * @return count
      */
     public synchronized final int putCount() {
@@ -435,7 +432,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Returns the number of values that have been evicted.
-     * 
+     *
      * @return count
      */
     public synchronized final int evictionCount() {
@@ -445,7 +442,7 @@ public class TwoLevelLruCache<V> {
     /**
      * Returns a copy of the current contents of the L1 mem cache, ordered from
      * least recently accessed to most recently accessed.
-     * 
+     *
      * @return snapshot
      */
     public synchronized final Map<String, V> snapshot() {
@@ -459,7 +456,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Returns the directory where the disk cache stores its data.
-     * 
+     *
      * @return directory
      */
     public final File getDirectory() {
@@ -468,7 +465,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Returns true if the disk cache has been closed.
-     * 
+     *
      * @return closed
      */
     public final boolean isClosed() {
@@ -477,7 +474,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Force buffered operations to the file system.
-     * 
+     *
      * @throws IOException
      */
     public synchronized final void flush() throws IOException {
@@ -488,7 +485,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Closes the disk cache. Stored values will remain on the file system.
-     * 
+     *
      * @throws IOException
      */
     public synchronized final void close() throws IOException {
@@ -499,7 +496,7 @@ public class TwoLevelLruCache<V> {
 
     /**
      * Convert a byte stream to and from a concrete type.
-     * 
+     *
      * @param <T>
      *            Object type.
      */

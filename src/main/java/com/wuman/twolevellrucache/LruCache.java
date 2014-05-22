@@ -111,7 +111,7 @@ public class LruCache<K, V> {
     /**
      * Caches {@code value} for {@code key}. The value is moved to the head of
      * the queue.
-     * 
+     *
      * @return the previous value mapped by {@code key}.
      */
     public final V put(K key, V value) {
@@ -122,13 +122,23 @@ public class LruCache<K, V> {
         V previous;
         synchronized (this) {
             putCount++;
+
+            /* EP: we want to know how much "bigger" our cache will be once we
+                   add this pair, so we need it's size. Without override, the
+                   value is 1 for any pair. It is not allowed to be negative.  */
             size += safeSizeOf(key, value);
+
+            // EP: it will replace the existing instance *even if the value is the same*
             previous = map.put(key, value);
+
+            // EP: if we're replacing something, the size impact is new-old
             if (previous != null) {
                 size -= safeSizeOf(key, previous);
             }
         }
 
+        /* EP: this doesn't do anything, but one can implement it to
+           note that `previous` was replaced by `value` for `key`   */
         if (previous != null) {
             entryRemoved(false, key, previous, value);
         }
@@ -160,10 +170,16 @@ public class LruCache<K, V> {
                             + ".sizeOf() is reporting inconsistent results!");
                 }
 
+                /* EP: we're done when the size has reached a tolerable
+                   level or the internal map has no elements anyway  */
                 if (size <= maxSize || map.isEmpty()) {
                     break;
                 }
 
+                /* EP: Evict the oldest entry in the underlying LinkedHashMap
+                    though honestly, `wuman` _could_ have just made this thing
+                    extend LinkedHashMap and then used removeEldestEntry();
+                    or you can "go your own waaaay", it's all good.         */
                 Map.Entry<K, V> toEvict = map.entrySet().iterator().next();
                 key = toEvict.getKey();
                 value = toEvict.getValue();
@@ -178,7 +194,7 @@ public class LruCache<K, V> {
 
     /**
      * Removes the entry for {@code key} if it exists.
-     * 
+     *
      * @return the previous value mapped by {@code key}.
      */
     public final V remove(K key) {
@@ -206,11 +222,11 @@ public class LruCache<K, V> {
      * invoked when a value is evicted to make space, removed by a call to
      * {@link #remove}, or replaced by a call to {@link #put}. The default
      * implementation does nothing.
-     * 
+     *
      * <p>
      * The method is called without synchronization: other threads may access
      * the cache while this method is executing.
-     * 
+     *
      * @param evicted
      *            true if the entry is being removed to make space, false if the
      *            removal was caused by a {@link #put} or {@link #remove}.
@@ -226,11 +242,11 @@ public class LruCache<K, V> {
      * Called after a cache miss to compute a value for the corresponding key.
      * Returns the computed value or null if no value can be computed. The
      * default implementation returns null.
-     * 
+     *
      * <p>
      * The method is called without synchronization: other threads may access
      * the cache while this method is executing.
-     * 
+     *
      * <p>
      * If a value for {@code key} exists in the cache when this method returns,
      * the created value will be released with {@link #entryRemoved} and
@@ -255,7 +271,7 @@ public class LruCache<K, V> {
      * Returns the size of the entry for {@code key} and {@code value} in
      * user-defined units. The default implementation returns 1 so that size is
      * the number of entries and max size is the maximum number of entries.
-     * 
+     *
      * <p>
      * An entry's size must not change while it is in the cache.
      */
